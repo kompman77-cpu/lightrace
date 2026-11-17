@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>LIGHT RACE — гонка к финишу</title>
+<style>
+html,body{margin:0;height:100%;background:#02040d;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;-webkit-user-select:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+#cv{display:block;width:100vw;height:100vh}
+.hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;color:#8fe8ff;font-weight:700;letter-spacing:1px;text-shadow:0 0 8px rgba(0,200,255,.55);pointer-events:none;z-index:5;font-size:14px}
+.hud b{color:#e8fbff}
+#energyWrap{margin-top:5px;width:100px;height:7px;border:1px solid rgba(53,240,255,.7);border-radius:4px;overflow:hidden;background:rgba(0,30,50,.4)}
+#energy{height:100%;width:0%;background:linear-gradient(90deg,#a0f,#3ff);transition:width .1s linear}
+#boostBtn{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:88px;height:88px;border-radius:50%;border:2px solid #35f0ff;background:rgba(0,40,70,.45);color:#eaffff;font-weight:800;font-size:14px;letter-spacing:1px;z-index:6;box-shadow:0 0 18px rgba(53,240,255,.45);overflow:hidden}
+#bfill{position:absolute;left:0;bottom:0;width:100%;height:0%;background:linear-gradient(90deg,#0af,#3ff);opacity:.6;pointer-events:none;transition:height .12s linear}
+#btxt{position:relative;z-index:1}
+#boostBtn:active{filter:brightness(1.35)}
+#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;background:rgba(1,3,10,.88);padding:12px;box-sizing:border-box}
+#panel{max-width:560px;width:94%;padding:22px 20px;border:1px solid rgba(53,240,255,.6);border-radius:14px;background:rgba(2,10,26,.94);box-shadow:0 0 40px rgba(0,140,255,.25);color:#cfeeff;text-align:center;max-height:88vh;max-height:88dvh;overflow:auto;box-sizing:border-box}
+#panel h1{margin:0 0 6px;font-size:30px;letter-spacing:4px;color:#35f0ff;text-shadow:0 0 18px rgba(53,240,255,.8)}
+#panel h1 span{color:#ff7a2f;text-shadow:0 0 18px rgba(255,122,47,.8)}
+#panel p{margin:8px 0;font-size:14px;line-height:1.45;color:#9fd8ee}
+#panel button{padding:10px 22px;font-size:14px;font-weight:800;letter-spacing:1px;color:#03121c;background:linear-gradient(180deg,#6ff,#18c8e8);border:none;border-radius:8px;cursor:pointer;box-shadow:0 0 16px rgba(53,240,255,.5);margin:4px}
+#panel button:disabled{opacity:.4;cursor:default}
+#panel button.alt{background:linear-gradient(180deg,#ffd27f,#ff9a3c)}
+#panel button.dim{background:rgba(120,160,200,.25);color:#9fd8ee;box-shadow:none}
+.btnrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+#cards{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:8px}
+.card{width:168px;background:rgba(6,20,40,.85);border:1px solid rgba(53,240,255,.45);border-radius:10px;padding:8px 6px;text-align:center;box-sizing:border-box}
+.card.sel{border-color:#7dffc0;box-shadow:0 0 16px rgba(125,255,192,.4)}
+.card.lock{opacity:.5}
+.card h3{margin:2px 0;font-size:14px;color:#e8fbff;letter-spacing:1px}
+.card .st{font-size:10px;color:#ffd27f;margin:2px 0;line-height:1.35}
+.card p{margin:3px 0;font-size:10px;color:#9fd8ee;line-height:1.3}
+.card canvas{width:140px;height:100px;display:block;margin:2px auto}
+.card button{margin:5px 0 0;padding:6px 12px;font-size:11px;font-weight:800;color:#03121c;background:linear-gradient(180deg,#6ff,#18c8e8);border:none;border-radius:6px;cursor:pointer}
+.card button.buy{background:linear-gradient(180deg,#c89cff,#7a3cff);color:#fff}
+.grow{display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(6,20,40,.6);border:1px solid rgba(53,240,255,.3);border-radius:8px;padding:7px 10px;margin:6px 0;text-align:left}
+.grow .t{flex:1}
+.grow .t b{color:#e8fbff;font-size:13px}
+.grow .t span{color:#7fc6de;font-size:11px}
+.grow button{padding:6px 12px;font-size:11px;margin:0}
+@media (max-width:480px){
+  .hud{font-size:11px;padding:6px 8px}
+  #energyWrap{width:78px;height:6px;margin-top:3px}
+  #boostBtn{width:74px;height:74px;font-size:12px;right:10px}
+  #panel{padding:14px 10px;max-width:96%}
+  #panel h1{font-size:24px;letter-spacing:2px}
+  #panel p{font-size:12px}
+  .card{width:calc(50% - 6px)}
+}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="hud">
+  <div>КРИСТАЛЛЫ <b id="hCry">0</b><br><span style="font-size:11px">БАНК <span id="hBank">0</span> ◈ · РЕКОРД <span id="hBest">0</span></span></div>
+  <div style="text-align:right"><b id="hPlace">—</b> МЕСТО · <span id="hDist">6000 м</span><br><span style="font-size:11px">ТУРБО <span id="hE">0/100</span> · СПАСЕНИЙ <span id="hResc">0</span>/2 · ВЫБЫЛО <span id="hKills">0</span></span><div id="energyWrap"><div id="energy"></div></div></div>
+</div>
+<button id="boostBtn"><span id="bfill"></span><span id="btxt">ТУРБО</span></button>
+<div id="overlay"><div id="panel"></div></div>
+<script>
+(function(){
+'use strict';
+// Все ссылки на интерфейс — сразу
+var hCry=document.getElementById('hCry'), hBank=document.getElementById('hBank'),
+    hBest=document.getElementById('hBest'), hDist=document.getElementById('hDist'),
+    hPlace=document.getElementById('hPlace'), hKills=document.getElementById('hKills'),
+    hResc=document.getElementById('hResc'), hE=document.getElementById('hE'),
+    energyEl=document.getElementById('energy'), bfill=document.getElementById('bfill'),
+    overlay=document.getElementById('overlay'), panel=document.getElementById('panel'),
+    bb=document.getElementById('boostBtn');
+var cv=document.getElementById('cv');
+var ctx=cv.getContext('2d');
+var W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);W=cv.width=Math.round(innerWidth*DPR);H=cv.height=Math.round(innerHeight*DPR);cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';}
+window.addEventListener('resize',resize);window.addEventListener('orientationchange',resize);resize();
+
+var AH=150, GRID=20, TRACK_LEN=6000, MAX_TRAIL=60, TRAIL_LIFE=3.5, PI=Math.PI, TAU=PI*2;
+var N_ENEMIES=5;
+// ===== 10 аппаратов: профиль корпуса, кабина, фишка (fl), удача (lk) и личные ветки прокачки (uk) =====
+// lk: +2 — везучий (красный сюрприз почти не страшен), -2 — злой рок (красный чаще)
+var STYLES={
+  you:    {mn:'АВАНГАРД',prof:[[0,3.1],[0.8,1.9],[1.05,0.2],[0.9,-1.9],[0,-2.7]],can:'bubble',pods:true, fin:false,wings:false,
+    lk:0, fl:'Ровный универсал: без бонусов и без проколов',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','hybrid']},
+  cobra:  {mn:'ЗМЕЙ',    prof:[[0,3.4],[0.5,2.0],[0.75,0.2],[0.55,-1.8],[0,-2.6]],can:'slit',  pods:false,fin:true, wings:false,
+    lk:-1, fl:'Быстрый клин: манит красный сюрприз',
+    uk:['fuel','tank','boost','spd','steer','neon','hybrid']},
+  strizh: {mn:'СТРИЖ-М', prof:[[0,3.3],[0.6,2.2],[0.85,0.1],[0.8,-2.2],[0,-2.9]], can:'bubble',pods:true, fin:false,wings:true,
+    lk:1, fl:'Везучий: чаще ловит хорошие призы',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','dash']},
+  phantom:{mn:'ФАНТОМ-Х',prof:[[0,2.8],[1.1,1.6],[1.3,-0.4],[1.0,-2.0],[0,-2.5]],can:'twin',  pods:false,fin:false,wings:false,
+    lk:0, fl:'Огромный бак и десять путей прокачки',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','lucky','hybrid','econ']},
+  zenit:  {mn:'ЗЕНИТ-Р', prof:[[0,3.2],[0.9,1.7],[0.7,-0.6],[0.95,-2.0],[0,-2.6]],can:'bubble',pods:false,fin:true, wings:true,
+    lk:0, fl:'Стреловидный гонец с длинным рывком',
+    uk:['fuel','tank','magnet','boost','spd','steer','dash','econ']},
+  nox:    {mn:'НОКС-К',  prof:[[0,2.9],[0.5,1.4],[1.15,0.3],[1.2,-1.4],[0.5,-2.4],[0,-2.5]],can:'slit',pods:true,fin:false,wings:false,
+    lk:2, fl:'Талисман удачи: красный почти не страшен, но сток скромный',
+    uk:['fuel','magnet','boost','steer','hybrid']},
+  pulsar: {mn:'ПУЛЬСАР', prof:[[0,2.9],[0.95,1.8],[1.0,-0.2],[0.9,-1.7],[0,-2.4]],can:'twin',  pods:true, fin:false,wings:false,
+    lk:-2, fl:'Мощная тяга, но злой рок: красный чаще',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','lucky','hybrid']},
+  astra:  {mn:'АСТРА-Л', prof:[[0,3.6],[0.55,2.4],[0.7,0.4],[0.5,-2.1],[0,-2.8]],can:'slit',  pods:false,fin:false,wings:false,
+    lk:1, fl:'Скользкий везунчик с самой длинной мордой',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon']},
+  cyclone:{mn:'ЦИКЛОН',  prof:[[0,3.0],[0.75,1.9],[0.5,0.3],[0.9,-1.3],[0,-2.7]],can:'bubble',pods:false,fin:true, wings:true,
+    lk:-1, fl:'Шеврон с десятью ветками и капризной судьбой',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','dash','econ','hybrid']},
+  storm:  {mn:'ШТОРМ-9', prof:[[0,2.9],[1.0,1.9],[1.25,0.0],[1.1,-1.9],[0,-2.6]],can:'twin',  pods:true, fin:false,wings:true,
+    lk:0, fl:'ЭПИК: самая быстрая машина, все 11 веток прокачки',
+    uk:['fuel','tank','magnet','boost','spd','steer','neon','lucky','hybrid','dash','econ']}
+};
+// ===== Лестница характеристик: ступень каждого следующего аппарата чуть выше
+// полной прокачки предыдущего. ШТОРМ в максимуме — эпический байк игры =====
+var TIER_S =[42,  44.5,47,  49.5,52,  54.5,57,  59.5,62,  65];
+var TIER_TK=[100, 115, 130, 145, 160, 175, 190, 205, 220, 240];
+var TIER_BM=[1.80,1.85,1.90,1.95,2.00,2.05,2.10,2.15,2.20,2.25];
+function bikeTierId(n){
+  if(n==='you') return 0;
+  for(var i=0;i<RIDERS.length;i++) if(RIDERS[i].n===n) return i+1;
+  return 0;
+}
+function stockStats(tier){ return {s:TIER_S[tier],tk:TIER_TK[tier],tr:2.2,bm:TIER_BM[tier]}; }
+// ===== 9 соперников: имя, аппарат, цена байка в банке, характер и стиль пилота =====
+// style: racer — вперёд на всех парах, hunter — любит кристаллы,
+// hoarder — копит бак до отказа и несётся на турбо, econ — бережёт топливо под финиш
+var RIDERS=[
+  {n:'КОБРА',  sty:'cobra',  col:'255,64,90',   d:'Клиновидный хищник со шпилем',          price:2500, style:'racer',   skill:1.08,greed:0.75,plan:'spender', aggr:0.60,risk:0.60,err:0.22},
+  {n:'СТРИЖ',  sty:'strizh', col:'120,255,90',  d:'Длинный и лёгкий, с обтекателем',       price:3200, style:'hoarder', skill:1.00,greed:0.60,plan:'saver',   aggr:0.45,risk:0.45,err:0.20},
+  {n:'ФАНТОМ', sty:'phantom',col:'255,80,200',  d:'Широкий стелс с двумя кабинами',        price:4000, style:'hunter',  skill:0.92,greed:1.00,plan:'spender', aggr:0.40,risk:0.50,err:0.26},
+  {n:'ЗЕНИТ',  sty:'zenit',  col:'255,220,70',  d:'Стреловидный, крылья и шпиль',          price:5000, style:'racer',   skill:1.05,greed:0.65,plan:'finisher',aggr:0.50,risk:0.55,err:0.24},
+  {n:'НОКС',   sty:'nox',    col:'170,110,255', d:'Крестообразный корпус, острый козырёк', price:6200, style:'econ',    skill:0.94,greed:0.85,plan:'saver',   aggr:0.35,risk:0.40,err:0.19},
+  {n:'ПУЛЬСАР',sty:'pulsar', col:'255,140,60',  d:'Округлый с крупными гондолами',         price:7600, style:'hunter',  skill:0.97,greed:0.70,plan:'spender', aggr:0.55,risk:0.50,err:0.23},
+  {n:'АСТРА',  sty:'astra',  col:'220,240,255', d:'Самый длинный и скользкий',             price:9200, style:'racer',   skill:1.10,greed:0.50,plan:'saver',   aggr:0.30,risk:0.40,err:0.16},
+  {n:'ЦИКЛОН', sty:'cyclone',col:'90,230,200',  d:'Шевронный корпус с плавниками',         price:11500,style:'hunter',  skill:0.90,greed:0.90,plan:'spender', aggr:0.50,risk:0.70,err:0.27},
+  {n:'ШТОРМ',  sty:'storm',  col:'90,150,255',  d:'Тяжёлый клин с мощными гондолами',      price:14000,style:'econ',    skill:0.96,greed:0.60,plan:'finisher',aggr:0.45,risk:0.50,err:0.21}
+];
+function getRider(n){ for(var i=0;i<RIDERS.length;i++) if(RIDERS[i].n===n) return RIDERS[i]; return null; }
+// ===== Улучшения. Каждому аппарату доступна своя часть этого списка =====
+var UPGRADES=[
+  {k:'fuel',  nm:'Стартовый бак',     pr:[0,300,900,2200],  fx:['пустой','10% бака','50% бака','полный бак'], d:'Сколько топлива в баке на старте'},
+  {k:'tank',  nm:'Объём бака',        pr:[0,600,1800,4500], fx:['100','+40','+80','+150'],                    d:'Ёмкость турбо: больше — дольше буст'},
+  {k:'magnet',nm:'Магнит-сборщик',    pr:[0,400,1400,3800], fx:['10 м','13 м','15 м','20 м'],                 d:'Радиус подбора кристаллов'},
+  {k:'boost', nm:'Тяга турбо',        pr:[0,500,1500,3600], fx:['×1.80','×1.90','×2.00','×2.15'],             d:'Ускорение на бусте'},
+  {k:'spd',   nm:'Форсаж корпуса',    pr:[0,700,2000,5000], fx:['+0%','+2%','+4%','+7%'],                      d:'Максимальная скорость'},
+  {k:'steer', nm:'Управление',        pr:[0,400,1200],      fx:['+0%','+12%','+22%'],                          d:'Резкость руля'},
+  {k:'neon',  nm:'Неон-пакет',        pr:[0,250,700],       fx:['стандарт','ярче','огонь'],                    d:'Свечение трубок на корпусе'},
+  {k:'lucky', nm:'Фильтр удачи',      pr:[0,1600],          fx:['—','красный сюрприз даёт топливо'],           d:'Защита от антиприза'},
+  {k:'hybrid',nm:'Гибридный кристалл',pr:[0,1800],          fx:['—','+10 за кристалл'],                        d:'Заряд от обычных кристаллов'},
+  {k:'dash',  nm:'Удлинённый рывок',    pr:[0,900,2600],        fx:['2.5 с','3.5 с','4.5 с'],  d:'Сюрприз РЫВОК длится дольше'},
+  {k:'econ',  nm:'Экономайзер',         pr:[0,800,2200,4200],   fx:['0%','-10%','-20%','-30%'],d:'Турбо тратит меньше топлива'}
+];
+// Соперникам покупки дешевле — иначе они богатели бы годами
+var RIV_PR={spd:[0,250,700,1800],tank:[0,200,600,1500],boost:[0,150,450,1200]};
+// ===== Сохранение: банк, тюнинг каждого байка отдельно, кошельки соперников =====
+function loadSave(){
+  try{
+    var s=JSON.parse(localStorage.getItem('lr_save_v3')||'null');
+    if(s&&s.tune) return s;
+  }catch(e){}
+  var s2=null;
+  try{ s2=JSON.parse(localStorage.getItem('lr_save_v2')||'null'); }catch(e){}
+  if(s2&&s2.upg){
+    // Перенос: старый тюнинг достаётся тому байку, на котором ты ездил
+    var sel=s2.sel||'you';
+    s2.tune={};
+    s2.tune[sel]=s2.upg;
+    if(!s2.tune.you) s2.tune.you={fuel:0,tank:0,magnet:0,boost:0,spd:0,steer:0,neon:0,lucky:0,hybrid:0};
+    delete s2.upg;
+    return s2;
+  }
+  return {bank:0,best:0,unlocked:[],owned:[],sel:'you',
+    tune:{you:{fuel:0,tank:0,magnet:0,boost:0,spd:0,steer:0,neon:0,lucky:0,hybrid:0}},
+    rivals:{}};
+}
+function saveGame(){ try{ localStorage.setItem('lr_save_v3',JSON.stringify(SV)); }catch(e){} }
+var SV=loadSave();
+for(var ri0=0;ri0<RIDERS.length;ri0++){
+  var rn=RIDERS[ri0].n;
+  if(!SV.rivals[rn]) SV.rivals[rn]={cr:0,spd:0,tank:0,boost:0};
+}
+// Эффекты тюнинга — пересчитываются на каждый заезд
+var TANK_CAP=100, START_EN=0, CRYS_CHG=30, COLLECT_R=10, BOOST_M=1.8, MAX_SPD=42, STEER_R=2.2, LUCKY=false, NEON_K=1;
+var DASH_T=2.5, ECON_K=1;
+function curTune(){
+  var t=SV.tune[SV.sel];
+  if(!t){ t={fuel:0,tank:0,magnet:0,boost:0,spd:0,steer:0,neon:0,lucky:0,hybrid:0}; SV.tune[SV.sel]=t; }
+  return t;
+}
+function applyUpgrades(){
+  var u=curTune();
+  var bs=stockStats(bikeTierId(SV.sel));
+  START_EN=Math.round(bs.tk*[0,0.1,0.5,1][u.fuel||0]);
+  TANK_CAP=bs.tk+[0,40,80,150][u.tank||0];
+  CRYS_CHG=30+(u.hybrid?10:0);
+  COLLECT_R=[10,13,15,20][u.magnet||0];
+  BOOST_M=bs.bm+[0,0.1,0.2,0.35][u.boost||0];
+  MAX_SPD=bs.s*(1+[0,0.02,0.04,0.07][u.spd||0]);
+  STEER_R=bs.tr*(1+[0,0.12,0.22][u.steer||0]);
+  LUCKY=!!u.lucky;
+  NEON_K=1+0.15*(u.neon||0);
+  DASH_T=[2.5,3.5,4.5][u.dash||0];
+  ECON_K=[1,0.9,0.8,0.7][u.econ||0];
+}
+function playerStats(){ applyUpgrades(); return {s:MAX_SPD,tk:TANK_CAP,tr:STEER_R,bm:BOOST_M}; }
+// Равные шансы: соперники стартуют на уровне стока твоего аппарата,
+// а их покупки из кошельков подтягивают до твоего максимума
+function rivalStats(r){
+  var rv=SV.rivals[r.n]||{cr:0,spd:0,tank:0,boost:0};
+  var bs=stockStats(bikeTierId(SV.sel));
+  var m=[0,0.02,0.04,0.07][rv.spd||0];
+  return {s:bs.s*(1+m),tk:bs.tk+[0,40,80,150][rv.tank||0],tr:bs.tr*(1+m),bm:bs.bm+[0,0.1,0.2,0.3][rv.boost||0]};
+}
+var state='menu';
+var P=null, enemies=[], bikes=[], particles=[], crystals=[], finishOrder=[];
+var usedRiders=[];
+var spectate=false, spectMsgT=0;
+var msgT=0, msgText='', msgCol='53,240,255';
+var score=0, kills=0, crysN=0, respT=8;
+var best=SV.best||0;
+var newUnlock=null, garTab='up';
+var shake=0, tG=0, graceT=0;
+var countT=0, countPrev=-99;
+var steerKey=0, touchSteer=0, touchOn=false, touchX0=0;
+var boostKey=false, boostBtnOn=false;
+var energy=0, boosting=false;
+var cam={x:0,y:7,z:-16,yaw:0,pitch:0.15,kick:0,phase:'chase',timer:14,phaseT:0};
+
+function clamp(v,a,b){if(v<a)return a;if(v>b)return b;return v;}
+function shuffle(a){
+  var r=a.slice();
+  for(var i=r.length-1;i>0;i--){ var j=(Math.random()*(i+1))|0; var t=r[i]; r[i]=r[j]; r[j]=t; }
+  return r;
+}
+function riderParts(rn){
+  var rv=SV.rivals[rn]||{cr:0,spd:0,boost:0};
+  return {spoiler:(rv.spd||0)>0,front:false,side:(rv.boost||0)>0,neon:false};
+}
+function makeBike(x,z,ang,isP,rider,st,parts){
+  var styId=rider?rider.sty:'you';
+  var style=STYLES[styId]||STYLES.you;
+  return {x:x,z:z,ang:ang,trail:[{x:x,z:z,t:tG}],tlen:0,alive:true,isP:!!isP,
+    col:rider?rider.col:'53,240,255',sty:style,rider:rider||null,rname:rider?rider.n:'ТЫ',
+    baseSpd:st.s,spd:st.s,sSpd:st.s,tcap:st.tk,trn:st.tr,bmul:st.bm,
+    boost:false,energy:isP?START_EN:0,parts:parts||{},
+    stunT:0,invT:0,rescues:0,freeT:0,slowT:0,boostReactT:0,
+    thinkT:Math.random()*0.4,desTa:null,boostDesire:false,errT:0,
+    spendAll:false,
+    blockT:0,blockDir:1,blockCd:6+Math.random()*5,
+    lane:x,skill:1,greed:0.6,plan:'spender',aggr:0.5,risk:0.5,err:0.2,
+    done:false,crystals:0,place:0};
+}
+function genCrystals(){
+  crystals=[];
+  for(var z=300;z<TRACK_LEN-200;){
+    var n=1+(Math.random()*3|0);
+    for(var i=0;i<n;i++) crystals.push({x:(Math.random()*2-1)*65,z:z+Math.random()*40,taken:false,type:Math.random()<0.18?'m':'n',ph:Math.random()*TAU});
+    z+=90+Math.random()*110;
+  }
+}
+function reset(){
+  applyUpgrades();
+  var line=[-125,-75,-25,25,75,125];
+  var selRider=(SV.sel!=='you')?getRider(SV.sel):null;
+  P=makeBike(line[2],10,0,true,selRider,playerStats(),
+    {spoiler:curTune().spd>0,front:curTune().steer>0,side:curTune().boost>0,neon:curTune().neon>0});
+  enemies=[]; usedRiders=[];
+  // Выбранный тобой пилот в гонку не попадает — двойников нет
+  var pool=shuffle(RIDERS.filter(function(r){ return !selRider||r.n!==selRider.n; }));
+  var slots=[0,1,3,4,5];
+  for(var i=0;i<N_ENEMIES;i++){
+    var r=pool[i];
+    var e=makeBike(line[slots[i]], slots[i]%2?10:22, 0, false, r, rivalStats(r), riderParts(r.n));
+    e.lane=line[slots[i]]*0.8;
+    e.skill=r.skill; e.greed=r.greed; e.plan=r.plan; e.style=r.style;
+    e.aggr=r.aggr; e.risk=r.risk; e.err=r.err;
+    enemies.push(e); usedRiders.push(r.n);
+  }
+  bikes=[P].concat(enemies);
+  particles=[];finishOrder=[];score=0;kills=0;crysN=0;respT=8;boosting=false;shake=0;
+  spectate=false;spectMsgT=0;msgT=0;msgText='';newUnlock=null;
+  energy=Math.min(START_EN,TANK_CAP);
+  genCrystals();
+  graceT=2.5;
+  cam.kick=0;cam.phase='chase';cam.timer=14;cam.yaw=0;cam.x=0;cam.z=-16;cam.y=7;cam.pitch=0.15;
+}
+reset();
+// ================= ЗВУК =================
+var AC=null, master=null, engOsc=null, engGain=null, noiseBuf=null, musicTimer=null, stepN=0;
+function getNoise(){
+  if(noiseBuf) return noiseBuf;
+  noiseBuf=AC.createBuffer(1,AC.sampleRate|0,AC.sampleRate);
+  var d=noiseBuf.getChannelData(0);
+  for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  return noiseBuf;
+}
+function initAudio(){
+  if(AC){ if(AC.state==='suspended') AC.resume(); return; }
+  var Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx) return;
+  AC=new Ctx();
+  master=AC.createGain(); master.gain.value=0.55; master.connect(AC.destination);
+  var lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=900;
+  engGain=AC.createGain(); engGain.gain.value=0;
+  engOsc=AC.createOscillator(); engOsc.type='sawtooth'; engOsc.frequency.value=55;
+  engOsc.connect(lp); lp.connect(engGain); engGain.connect(master);
+  engOsc.start();
+  getNoise();
+  startMusic();
+}
+function tone(f,t,dur,type,vol,slide){
+  if(!AC) return;
+  var o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine';
+  o.frequency.setValueAtTime(Math.max(20,f),t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20,slide),t+dur);
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t+dur+0.05);
+}
+function noiseHit(t,dur,vol,f0,f1,q){
+  if(!AC) return;
+  var s=AC.createBufferSource(); s.buffer=getNoise(); s.loop=true;
+  var f=AC.createBiquadFilter(); f.type='bandpass'; f.Q.value=q||1;
+  f.frequency.setValueAtTime(f0,t);
+  if(f1) f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  var g=AC.createGain();
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f); f.connect(g); g.connect(master);
+  s.start(t); s.stop(t+dur+0.05);
+}
+function hat(t,vol){ noiseHit(t,0.045,vol,7500,0,1); }
+function sfxBoost(){ if(!AC) return; noiseHit(AC.currentTime,0.45,0.22,400,3200,2); }
+function sfxCrystal(){ if(!AC) return; var t=AC.currentTime; tone(880,t,0.12,'triangle',0.16,1760); tone(1760,t+0.06,0.15,'sine',0.08); }
+function sfxPrize(){ if(!AC) return; var t=AC.currentTime; tone(660,t,0.1,'square',0.14); tone(990,t+0.09,0.1,'square',0.14); tone(1320,t+0.18,0.22,'square',0.14); }
+function sfxSlow(){ if(!AC) return; var t=AC.currentTime; tone(500,t,0.5,'sawtooth',0.18,90); }
+function sfxCrash(){
+  if(!AC) return; var t=AC.currentTime;
+  noiseHit(t,0.7,0.5,1800,120,0.8);
+  tone(220,t,0.8,'sawtooth',0.3,40);
+}
+function sfxKill(){ if(!AC) return; var t=AC.currentTime; tone(300,t,0.25,'square',0.2,1400); noiseHit(t,0.25,0.15,2500,4000,3); }
+var SCALE=[0,3,5,7,10,12,15,17];
+var BASSPAT=[1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,1];
+function startMusic(){
+  if(musicTimer) return;
+  stepN=0;
+  musicTimer=setInterval(function(){
+    if(!AC||state!=='play') return;
+    var t=AC.currentTime+0.06, root=55, s=stepN%16;
+    if(BASSPAT[s]) tone(root*(s===12?1.335:1),t,0.2,'square',0.09);
+    if(stepN%2===0||Math.random()<0.3){
+      var n=SCALE[(stepN*5>>1)%SCALE.length];
+      tone(root*4*Math.pow(2,n/12),t,0.14,'triangle',0.05);
+    }
+    if(stepN%32===0){ tone(root*2,t,2.6,'sine',0.045); tone(root*2.997,t,2.6,'sine',0.03); }
+    if(stepN%16===8) tone(root*6,t,0.5,'sine',0.03);
+    if(s%4===2) hat(t,0.045);
+    stepN++;
+  },125);
+}
+function updEngine(){
+  if(!engGain||!engOsc||!P) return;
+  var on=(state==='play'&&P.alive&&P.stunT<=0);
+  engGain.gain.value=on?0.06:0;
+  if(on) engOsc.frequency.value=45+P.baseSpd*(P.boost?P.bmul:1)*1.15;
+}
+// ================= ФИЗИКА И ДВИЖОК ПИЛОТОВ =================
+function angDiff(t,a){ var d=(t-a)%TAU; if(d>PI)d-=TAU; if(d<-PI)d+=TAU; return d; }
+function moveBike(b,dt){
+  var s=b.spd*(b.boost?b.bmul:1)*(b.slowT>0?0.6:1);
+  b.x+=Math.sin(b.ang)*s*dt;
+  b.z+=Math.cos(b.ang)*s*dt;   // назад физически невозможно
+  b.x=clamp(b.x,-AH,AH);
+  if(!b.done&&b.stunT<=0){
+    var lt=b.trail[b.trail.length-1];
+    var dx=b.x-lt.x, dz=b.z-lt.z, dd=Math.sqrt(dx*dx+dz*dz);
+    if(dd>1.6){ b.trail.push({x:b.x,z:b.z,t:tG}); b.tlen+=dd; }
+  }
+  while(b.trail.length>2&&(tG-b.trail[0].t>TRAIL_LIFE||b.tlen>MAX_TRAIL)){
+    var f=b.trail[0],n=b.trail[1];
+    b.tlen-=Math.sqrt((n.x-f.x)*(n.x-f.x)+(n.z-f.z)*(n.z-f.z));
+    b.trail.shift();
+  }
+}
+function segHit(px,pz,a,c,rad){
+  var vx=c.x-a.x, vz=c.z-a.z;
+  var wx=px-a.x, wz=pz-a.z;
+  var L2=vx*vx+vz*vz;
+  if(L2<0.0001){ return (wx*wx+wz*wz)<rad*rad; }
+  var t=(wx*vx+wz*vz)/L2;
+  if(t<0||t>1) return false;
+  var cx=a.x+vx*t-px, cz=a.z+vz*t-pz;
+  return (cx*cx+cz*cz)<rad*rad;
+}
+function hitWall(b,foeSafe){
+  if(Math.abs(b.x)>AH-0.6) return true;
+  var px=b.x,pz=b.z,rad=1.6;
+  for(var k=0;k<bikes.length;k++){
+    if(foeSafe&&!bikes[k].isP) continue; // след соперника не убивает соперника
+    var tr=bikes[k].trail;
+    if(tr.length<2) continue;
+    var cut=tr.length-1;
+    if(bikes[k]===b){
+      var idx=tr.length-1, acc=0;
+      while(idx>0&&acc<7){
+        var ax=tr[idx].x-tr[idx-1].x, az=tr[idx].z-tr[idx-1].z;
+        acc+=Math.sqrt(ax*ax+az*az);
+        idx--;
+      }
+      cut=idx;
+    }
+    for(var i=0;i<cut;i++){
+      var a=tr[i],c=tr[i+1];
+      if(a.z>pz+40&&c.z>pz+40) continue;
+      if(a.z<pz-40&&c.z<pz-40) continue;
+      if(segHit(px,pz,a,c,rad)) return true;
+    }
+  }
+  return false;
+}
+function dangerAt(x,z){
+  if(Math.abs(x)>AH-5) return true;
+  for(var k=0;k<bikes.length;k++){
+    var tr=bikes[k].trail;
+    for(var i=0;i<tr.length-1;i+=2){
+      var a=tr[i],c=tr[i+1];
+      if(a.z>z+35&&c.z>z+35) continue;
+      if(a.z<z-35&&c.z<z-35) continue;
+      if(segHit(x,z,a,c,7)) return true;
+    }
+  }
+  return false;
+}
+function mysteryHue(c){ return ((tG*140+c.ph*57)%360+360)%360; }
+// Сюрприз: удача аппарата (lk) решает, куда качнётся цвет.
+// Везучий (lk>0) может переделать красный в хороший, злой рок (lk<0) портит хороший в красный
+function mysteryEffect(b,c){
+  var h=mysteryHue(c), txt, col2;
+  var lk=(b.sty&&b.sty.lk)||0;
+  if(lk!==0){
+    var isRed=(h<60||h>=330);
+    if(isRed&&lk>0&&Math.random()<lk*0.25) h=90+Math.random()*240;
+    else if(!isRed&&lk<0&&Math.random()<(-lk)*0.25) h=20+Math.random()*20;
+  }
+  if(h<60||h>=330){
+    if(LUCKY||!b.isP){ b.energy=Math.min(b.tcap,b.energy+40); txt='+40 ТОПЛИВА'; col2='200,120,255'; }
+    else { b.slowT=2.0; txt='ТОРМОЗИШЬ!'; col2='255,80,80'; if(b.isP) sfxSlow(); }
+  }
+  else if(h<180){ b.energy=b.tcap; txt='ПОЛНЫЙ БАК!'; col2='80,255,120'; }
+  else if(h<270){ b.freeT=(b.isP?DASH_T:2.5); txt='РЫВОК!'; col2='80,200,255'; }
+  else { b.energy=Math.min(b.tcap,b.energy+40); txt='+40 ТОПЛИВА'; col2='200,120,255'; }
+  if(b.isP){ msgText=txt; msgCol=col2; msgT=1.6; sfxPrize(); }
+}
+function collect(b){
+  for(var i=0;i<crystals.length;i++){
+    var c=crystals[i]; if(c.taken) continue;
+    var dz=c.z-b.z; if(dz<-COLLECT_R||dz>COLLECT_R) continue;
+    var dx=c.x-b.x; if(Math.abs(dx)>COLLECT_R) continue;
+    if(dx*dx+dz*dz<COLLECT_R*COLLECT_R){
+      c.taken=true;
+      b.crystals++;
+      if(c.type==='m') mysteryEffect(b,c);
+      else{
+        if(b.isP){
+          crysN++; score+=120;
+          energy=Math.min(TANK_CAP,energy+CRYS_CHG);
+          sfxCrystal();
+          hCry.textContent=crysN;
+        } else b.energy=Math.min(b.tcap,b.energy+CRYS_CHG);
+      }
+    }
+  }
+}
+function think(e){
+  e.thinkT=0.35+Math.random()*0.55;
+  e.desTa=null;
+  if(Math.random()<e.err*2) e.errT=0.5+Math.random()*1.0;
+  if(e.blockCd<=0&&graceT<=0){
+    var tb=null, td2=1e9;
+    for(var i=0;i<bikes.length;i++){
+      var o=bikes[i];
+      if(o===e||!o.alive||o.done) continue;
+      var dz=o.z-e.z; if(dz<30||dz>75) continue;
+      var dx=Math.abs(o.x-e.x); if(dx>45) continue;
+      var dd=dz*dz+dx*dx;
+      if(dd<td2){ td2=dd; tb=o; }
+    }
+    if(tb&&Math.random()<e.aggr){
+      e.blockDir=(tb.x>e.x?1:-1);
+      e.blockT=0.8+Math.random()*0.5;
+      e.blockCd=7+Math.random()*8;
+      return;
+    }
+  }
+  // Обгон хвоста: если игрок впереди рядом — прощупываем стороны и уходим объезжать
+  if(P.alive&&!P.done){
+    var dzp=P.z-e.z;
+    if(dzp>8&&dzp<70&&Math.abs(P.x-e.x)<12){
+      var dl=dangerAt(e.x-6,e.z+16), dr2=dangerAt(e.x+6,e.z+16);
+      var side=(dl&&!dr2)?1:(dr2&&!dl)?-1:(P.x>e.x?-1:1);
+      e.desTa=clamp(side*0.85,-1.0,1.0);
+    }
+  }
+  // Стиль пилота решает, за чем ехать
+  var stl=e.style||'hunter';
+  var bc=null, bd=1e9;
+  var reach=(stl==='hunter')?50:(stl==='hoarder'?42:(stl==='econ'?26:9));
+  for(var j=0;j<crystals.length;j++){
+    var c=crystals[j]; if(c.taken) continue;
+    var dz2=c.z-e.z; if(dz2<4||dz2>85) continue;
+    var dx2=c.x-e.x; if(Math.abs(dx2)>reach) continue;
+    var dd2=dx2*dx2+dz2*dz2;
+    if(dd2<bd){ bd=dd2; bc=c; }
+  }
+  if(bc&&Math.random()>=e.err*1.6){
+    var myD=Math.sqrt(bd), theyCloser=false;
+    for(var k2=0;k2<bikes.length;k2++){
+      var o2=bikes[k2];
+      if(o2===e||!o2.alive||o2.done) continue;
+      var odx=o2.x-bc.x, odz=o2.z-bc.z;
+      if(odz*odz+odx*odx<bd*0.56){ theyCloser=true; break; }
+    }
+    if(!theyCloser||Math.random()<e.risk){
+      var off=(Math.random()*2-1)*(1.05-e.skill*0.5)*0.35;
+      e.desTa=clamp(Math.atan2(bc.x-e.x,bc.z-e.z)+off,-0.8,0.8);
+    }
+  }
+  for(var m3=0;m3<bikes.length;m3++){
+    var o3=bikes[m3];
+    if(o3===e||!o3.alive||o3.done) continue;
+    var dz3=o3.z-e.z;
+    if(dz3>8&&dz3<32&&Math.abs(o3.x-e.x)<9){
+      var dir=(e.x>=o3.x)?1:-1;
+      e.desTa=clamp(e.ang+dir*0.85,-1.0,1.0);
+      break;
+    }
+  }
+  // Пороги турбо — по стилю пилота, в долях его бака
+  var en=e.energy, tc=e.tcap;
+  if(stl==='hoarder'){
+    if(en>=tc*0.92) e.spendAll=true;
+    e.boostDesire=e.spendAll&&en>2;
+  } else if(stl==='econ'){
+    e.boostDesire=(en>=tc*0.55&&e.z>TRACK_LEN-2200)||en>=tc*0.9;
+  } else if(stl==='racer'){
+    e.boostDesire=en>=tc*0.25||e.z>TRACK_LEN-900;
+  } else {
+    e.boostDesire=en>=tc*0.35;
+  }
+  if(e.boostDesire&&Math.random()<e.err*1.2) e.boostDesire=false;
+  else if(e.boostDesire) e.boostReactT=0.2+Math.random()*0.8;
+}
+function updateEnemy(e,dt){
+  if(!e.alive||e.done) return;
+  if(e.stunT>0){
+    e.stunT-=dt;
+    e.ang+=9*dt;
+    if(e.stunT<=0){
+      e.x=clamp(e.x,-AH+12,AH-12);
+      e.trail=[{x:e.x,z:e.z,t:tG}]; e.tlen=0;
+      e.invT=1.2;
+    }
+    return;
+  }
+  if(e.invT>0) e.invT-=dt;
+  if(e.freeT>0) e.freeT-=dt;
+  if(e.slowT>0) e.slowT-=dt;
+  if(e.boostReactT>0) e.boostReactT-=dt;
+  collect(e);
+  if(e.blockT>0){
+    e.blockT-=dt;
+    e.ang=clamp(e.ang+e.blockDir*1.6*dt,-1.05,1.05);
+    moveBike(e,dt);
+    if(e.invT<=0&&hitWall(e,true)) crash(e);
+    return;
+  }
+  e.thinkT-=dt;
+  if(e.thinkT<=0) think(e);
+  e.errT-=dt;
+  var ta;
+  var ax=e.x+Math.sin(e.ang)*36, az=e.z+Math.cos(e.ang)*36;
+  if(dangerAt(ax,az)){
+    var l=dangerAt(e.x+Math.sin(e.ang-1.0)*30, e.z+Math.cos(e.ang-1.0)*30);
+    var r=dangerAt(e.x+Math.sin(e.ang+1.0)*30, e.z+Math.cos(e.ang+1.0)*30);
+    if(l&&!r) ta=e.ang+0.85;
+    else if(r&&!l) ta=e.ang-0.85;
+    else ta=e.ang;
+  } else if(e.desTa!==null){
+    ta=e.desTa;
+    if(e.errT>0) ta+=Math.sin(tG*7+e.x)*0.4;
+  } else {
+    var lx=e.lane+Math.sin(tG*0.4+e.lane*0.1)*5;
+    ta=clamp(Math.atan2(lx-e.x,60),-0.5,0.5);
+    if(e.errT>0) ta+=Math.sin(tG*9)*0.25;
+  }
+  var d=angDiff(ta,e.ang), m=1.6*e.skill*dt;
+  e.ang=clamp(e.ang+clamp(d,-m,m),-1.05,1.05);
+  // Резиновая лента: держим пелотон в коридоре конкуренции
+  var lead=e.z-P.z;
+  if(lead<-120) e.spd=e.baseSpd+Math.min(14,-lead*0.09);
+  else if(lead<-25) e.spd=e.baseSpd+Math.min(9,(25-lead)*0.09);
+  else if(lead>450) e.spd=e.baseSpd-Math.min(7,(lead-450)*0.008);
+  else e.spd=e.baseSpd;
+  // Турбо: рывок накопителя, догон отставшего, стиль пилота
+  if(e.freeT>0) e.boost=true;
+  else if(e.spendAll&&e.energy>2){ e.boost=true; e.energy=Math.max(0,e.energy-18*dt); }
+  else if(lead<-120&&e.energy>8){ e.boost=true; e.energy=Math.max(0,e.energy-18*dt); }
+  else if(e.boostDesire&&e.boostReactT<=0&&e.energy>2){ e.boost=true; e.energy=Math.max(0,e.energy-18*dt); }
+  else e.boost=false;
+  if(e.spendAll&&e.energy<=2) e.spendAll=false;
+  moveBike(e,dt);
+  if(!e.done&&e.z>=TRACK_LEN){
+    e.done=true; e.alive=false;
+    finishOrder.push(e); e.place=finishOrder.length;
+    if(spectate) finishSpectate();
+  }
+  if(e.invT<=0&&hitWall(e,true)) crash(e);
+}
+function boom(x,y,z,col,n){
+  for(var i=0;i<n;i++){
+    var a=Math.random()*TAU, v=6+Math.random()*26;
+    particles.push({x:x,y:y,z:z,vx:Math.cos(a)*v,vy:Math.random()*22,vz:Math.sin(a)*v,
+      life:0.6+Math.random()*0.9,t:0,col:col,sz:1.5+Math.random()*3.5});
+  }
+}
+function crash(b){
+  if(!b.alive||b.done||b.stunT>0) return;
+  boom(b.x,1.2,b.z, b.col, 50);
+  shake=1;
+  if(b.rescues<2){
+    b.rescues++;
+    b.stunT=2.2;
+    b.trail=[{x:b.x,z:b.z,t:tG}]; b.tlen=0;
+    if(b.isP){ sfxCrash(); hResc.textContent=b.rescues; msgText='ЗАКРУТИЛО! ЖДИ ПОДБОРКИ'; msgCol='255,220,70'; msgT=2.2; }
+  } else {
+    b.alive=false;
+    boom(b.x,1.2,b.z, b.col, 40);
+    if(b.isP){ sfxCrash(); spectate=true; spectMsgT=4; }
+    else { sfxKill(); score+=500; kills++; cam.kick=1; hKills.textContent=kills; }
+  }
+}
+function raceLeader(){
+  var bestB=null, bz=-1e9;
+  for(var i=0;i<bikes.length;i++){
+    var b=bikes[i];
+    if(b.isP||!b.alive||b.done) continue;
+    if(b.z>bz){ bz=b.z; bestB=b; }
+  }
+  return bestB;
+}
+function update(dt){
+  if(P.alive&&!P.done){
+    if(P.stunT>0){
+      P.stunT-=dt;
+      P.ang+=9*dt;
+      if(P.stunT<=0){
+        P.x=clamp(P.x,-AH+12,AH-12);
+        P.trail=[{x:P.x,z:P.z,t:tG}]; P.tlen=0;
+        P.invT=1.2;
+        msgText='ПОЕХАЛИ ДАЛЬШЕ!'; msgCol='80,255,120'; msgT=1.2;
+      }
+    } else {
+      if(graceT>0){ graceT-=dt; if(graceT<=0){ P.trail=[{x:P.x,z:P.z,t:tG}]; P.tlen=0; } }
+      if(P.invT>0) P.invT-=dt;
+      if(P.freeT>0) P.freeT-=dt;
+      if(P.slowT>0) P.slowT-=dt;
+      var steer=clamp(steerKey+touchSteer,-1,1);
+      P.ang=clamp(P.ang+steer*P.trn*dt,-0.95,0.95);
+      var wantBoost=(boostKey||boostBtnOn)&&energy>0.5;
+      if(wantBoost&&!boosting) sfxBoost();
+      boosting=wantBoost;
+      if(boosting) energy=Math.max(0,energy-26*ECON_K*dt);
+      P.boost=boosting||P.freeT>0;
+      moveBike(P,dt); collect(P);
+      score+=P.baseSpd*(P.boost?P.bmul:1)*(P.slowT>0?0.6:1)*dt*0.1;
+      if(graceT<=0&&P.invT<=0&&hitWall(P)) crash(P);
+      if(P.z>=TRACK_LEN&&!P.done){ P.done=true; finishOrder.push(P); P.place=finishOrder.length; winGame(); }
+    }
+  }
+  for(var i=0;i<enemies.length;i++) updateEnemy(enemies[i],dt);
+  if(!spectate){
+    var alive=0;
+    for(var j=0;j<enemies.length;j++) if(enemies[j].alive&&!enemies[j].done) alive++;
+    if(alive<N_ENEMIES){
+      respT-=dt;
+      if(respT<=0){
+        var cand=RIDERS.filter(function(r){ return r.n!==SV.sel && usedRiders.indexOf(r.n)<0; });
+        if(!cand.length) cand=RIDERS.filter(function(r){ return r.n!==SV.sel; });
+        var r2=cand[(Math.random()*cand.length)|0];
+        usedRiders.push(r2.n);
+        var ne=makeBike((Math.random()*2-1)*(AH-60),Math.min(P.z+320,TRACK_LEN-500),0,false,r2,rivalStats(r2),riderParts(r2.n));
+        ne.lane=ne.x*0.8;
+        ne.skill=r2.skill; ne.greed=r2.greed; ne.plan=r2.plan; ne.style=r2.style;
+        ne.aggr=r2.aggr; ne.risk=r2.risk; ne.err=r2.err;
+        enemies.push(ne); bikes.push(ne);
+        respT=7+Math.random()*4;
+        msgText='В ГОНКУ ВЕРНУЛСЯ '+r2.n; msgCol='255,220,70'; msgT=1.4;
+      }
+    }
+  }
+  for(var p=particles.length-1;p>=0;p--){
+    var q=particles[p]; q.t+=dt;
+    if(q.t>q.life){ particles.splice(p,1); continue; }
+    q.x+=q.vx*dt; q.y+=q.vy*dt; q.z+=q.vz*dt; q.vy-=30*dt;
+  }
+  if(shake>0) shake-=dt*2;
+  if(msgT>0) msgT-=dt;
+  if(spectMsgT>0) spectMsgT-=dt;
+  if(spectate&&state==='play'){
+    var anyAlive=false;
+    for(var m2=0;m2<enemies.length;m2++) if(enemies[m2].alive&&!enemies[m2].done) anyAlive=true;
+    if(!anyAlive) finishSpectate();
+  }
+  updEngine();
+}
+function updateCam(dt){
+  var t=spectate?raceLeader():P;
+  cam.timer-=dt;
+  if(cam.phase==='chase'&&cam.timer<=0){ cam.phase='top'; cam.phaseT=0; }
+  if(cam.phase==='top'){ cam.phaseT+=dt; if(cam.phaseT>4.5){ cam.phase='chase'; cam.timer=13+Math.random()*8; } }
+  var fx=Math.sin(t.ang), fz=Math.cos(t.ang), tx,ty,tz,tp;
+  if(cam.phase==='chase'){ tx=t.x-fx*17; ty=7.5+cam.kick*10; tz=t.z-fz*17; tp=0.16; }
+  else { tx=t.x-fx*8; ty=250; tz=t.z-fz*55; tp=-1.32; }
+  var k=1-Math.pow(0.05,dt);
+  cam.x+=(tx-cam.x)*k; cam.y+=(ty-cam.y)*k; cam.z+=(tz-cam.z)*k;
+  cam.pitch+=(tp-cam.pitch)*k;
+  cam.yaw+=angDiff(t.ang,cam.yaw)*(1-Math.pow(0.02,dt));
+  if(cam.kick>0) cam.kick=Math.max(0,cam.kick-dt*1.6);
+}
+// ================= РЕНДЕР МИРА =================
+var focal=800;
+function proj(x,y,z){
+  var dx=x-cam.x, dy=y-cam.y, dz=z-cam.z;
+  var cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw);
+  var fwd=dz*cy+dx*sy;
+  var r=dx*cy-dz*sy;
+  var cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch);
+  var dep=fwd*cp+dy*sp;
+  if(dep<2) return null;
+  var up=dy*cp-fwd*sp;
+  var f=focal*(1+cam.kick*0.4);
+  return {x:W/2+f*r/dep, y:H/2-f*up/dep, d:dep};
+}
+function drawWorld(){
+  var z0=cam.z-40, z1=cam.z+760;
+  var zs=Math.floor(z0/GRID)*GRID;
+  ctx.beginPath();
+  for(var x=-AH-160;x<=AH+160;x+=GRID){
+    var p1=proj(x,0,z0), p2=proj(x,0,z1);
+    if(p1&&p2){ ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); }
+  }
+  ctx.strokeStyle='rgba(30,120,255,0.22)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.beginPath();
+  for(var i=-2;i<26;i++){
+    var z=zs+i*GRID;
+    var a=proj(-AH-160,0,z), b=proj(AH+160,0,z);
+    if(a&&b){ ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); }
+  }
+  ctx.strokeStyle='rgba(30,120,255,0.20)'; ctx.stroke();
+  for(var s=-1;s<=1;s+=2) drawWallSide(s*AH);
+}
+function drawWallSide(sx){
+  ctx.beginPath();
+  for(var i=-2;i<20;i++){
+    var z=Math.floor(cam.z/40)*40+i*40;
+    var a=proj(sx,0,z), b=proj(sx,8,z);
+    if(a&&b){ ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); }
+  }
+  ctx.strokeStyle='rgba(160,70,255,0.5)'; ctx.lineWidth=2; ctx.stroke();
+  var t1=proj(sx,8,cam.z-40), t2=proj(sx,8,cam.z+760);
+  if(t1&&t2){
+    ctx.strokeStyle='rgba(255,60,120,0.8)'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(t1.x,t1.y); ctx.lineTo(t2.x,t2.y); ctx.stroke();
+  }
+}
+function drawStrip(zx,al){
+  if(zx<cam.z-30||zx>cam.z+760) return;
+  var cw=12, cz=6;
+  for(var xi=0;xi<25;xi++){
+    var x0=-AH+xi*cw;
+    for(var zi=0;zi<2;zi++){
+      var z0=zx+zi*cz;
+      var p1=proj(x0,0.06,z0), p2=proj(x0+cw,0.06,z0),
+          p3=proj(x0+cw,0.06,z0+cz), p4=proj(x0,0.06,z0+cz);
+      if(!p1||!p2||!p3||!p4) continue;
+      ctx.fillStyle=((xi+zi)%2===0)?'rgba(255,255,255,'+(0.75*al).toFixed(2)+')':'rgba(140,60,230,'+(0.75*al).toFixed(2)+')';
+      ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(p3.x,p3.y); ctx.lineTo(p4.x,p4.y); ctx.closePath(); ctx.fill();
+    }
+  }
+}
+function drawFinish(){
+  drawStrip(0,0.5);
+  drawStrip(TRACK_LEN,1);
+  var tp=proj(0,10,TRACK_LEN+18);
+  if(tp&&tp.d<740){
+    var fs=focal*14/tp.d;
+    ctx.save();
+    ctx.font='800 '+fs+'px Segoe UI, Arial';
+    ctx.textAlign='center';
+    ctx.shadowColor='#ff5ac8'; ctx.shadowBlur=25;
+    ctx.fillStyle='rgba(255,120,210,0.95)';
+    ctx.fillText('FINISH', tp.x, tp.y);
+    ctx.restore();
+  }
+}
+function drawCrystals(){
+  for(var i=0;i<crystals.length;i++){
+    var c=crystals[i]; if(c.taken) continue;
+    if(c.z<cam.z-10||c.z>cam.z+520) continue;
+    var p=proj(c.x,2.2+Math.sin(tG*2.5+c.ph)*0.5,c.z);
+    if(!p) continue;
+    var s=focal*1.6/p.d;
+    if(s<1) continue;
+    if(c.type==='m'){
+      var hue=Math.round(mysteryHue(c));
+      var g=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,s*3.4);
+      g.addColorStop(0,'hsla('+hue+',100%,70%,0.55)'); g.addColorStop(1,'hsla('+hue+',100%,70%,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,s*3.4,0,TAU); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y-s); ctx.lineTo(p.x+s*0.6,p.y); ctx.lineTo(p.x,p.y+s); ctx.lineTo(p.x-s*0.6,p.y); ctx.closePath();
+      ctx.fillStyle='hsl('+hue+',100%,65%)'; ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=Math.max(1,s*0.14); ctx.stroke();
+    } else {
+      var g2=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,s*3);
+      g2.addColorStop(0,'rgba(180,120,255,0.5)'); g2.addColorStop(1,'rgba(180,120,255,0)');
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(p.x,p.y,s*3,0,TAU); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y-s); ctx.lineTo(p.x+s*0.6,p.y); ctx.lineTo(p.x,p.y+s); ctx.lineTo(p.x-s*0.6,p.y); ctx.closePath();
+      ctx.fillStyle='rgba(200,140,255,0.9)'; ctx.fill();
+      ctx.strokeStyle='rgba(255,230,255,0.9)'; ctx.lineWidth=Math.max(1,s*0.12); ctx.stroke();
+    }
+  }
+}
+function drawTrails(){
+  for(var k=0;k<bikes.length;k++){
+    var b=bikes[k];
+    if(b.stunT>0) continue;
+    var tr=b.trail;
+    if(tr.length<2) continue;
+    var col=b.col;
+    var last=tr[tr.length-1];
+    var pb=proj(last.x,0.3,last.z);
+    var w=pb?clamp(focal*1.1/pb.d,1.2,8):3;
+    var step=8;
+    for(var i=0;i<tr.length-1;i+=step){
+      var j=Math.min(i+step,tr.length-1);
+      var al=1-(tG-tr[i].t)/TRAIL_LIFE;
+      if(al<=0.03) continue;
+      ctx.beginPath();
+      var started=false;
+      for(var q=i;q<=j;q++){
+        var p=proj(tr[q].x,0.35,tr[q].z);
+        if(!p){ started=false; continue; }
+        if(!started){ ctx.moveTo(p.x,p.y); started=true; }
+        else ctx.lineTo(p.x,p.y);
+      }
+      ctx.strokeStyle='rgba('+col+','+(al*0.18).toFixed(2)+')';
+      ctx.lineWidth=w*3; ctx.stroke();
+      ctx.strokeStyle='rgba('+col+','+(al*0.9).toFixed(2)+')';
+      ctx.lineWidth=w; ctx.stroke();
+    }
+  }
+}
+function drawParticles(){
+  for(var i=0;i<particles.length;i++){
+    var q=particles[i], p=proj(q.x,q.y,q.z);
+    if(!p) continue;
+    var a=1-q.t/q.life;
+    ctx.fillStyle='rgba('+q.col+','+(a*0.9).toFixed(2)+')';
+    ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(1,q.sz*focal/p.d*0.08),0,TAU); ctx.fill();
+  }
+}
+function drawCountdown(){
+  if(state!=='count') return;
+  var n=countT>0?Math.ceil(countT):0;
+  var txt=n>0?''+n:'ПОЕХАЛИ!';
+  var sz=Math.round(Math.min(W,H)*0.2);
+  ctx.save();
+  ctx.font='800 '+sz+'px Segoe UI, Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#35f0ff'; ctx.shadowBlur=30;
+  ctx.fillStyle='rgba(53,240,255,0.95)';
+  ctx.fillText(txt, W/2, H*0.4);
+  ctx.restore();
+}
+function drawSpectMsg(){
+  if(spectMsgT<=0) return;
+  var a=clamp(spectMsgT/4,0,1)*0.9;
+  ctx.save();
+  ctx.font='700 '+Math.round(Math.min(W,H)*0.05)+'px Segoe UI, Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#ff5a5a'; ctx.shadowBlur=20;
+  ctx.fillStyle='rgba(255,140,140,'+a.toFixed(2)+')';
+  ctx.fillText('ТЫ ВЫБЫЛ — СМОТРИМ ФИНИШ', W/2, H*0.2);
+  ctx.restore();
+}
+function drawMsg(){
+  if(msgT<=0||msgText==='') return;
+  var a=clamp(msgT/1.6,0,1)*0.95;
+  ctx.save();
+  ctx.font='800 '+Math.round(Math.min(W,H)*0.07)+'px Segoe UI, Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgb('+msgCol+')'; ctx.shadowBlur=24;
+  ctx.fillStyle='rgba('+msgCol+','+a.toFixed(2)+')';
+  ctx.fillText(msgText, W/2, H*0.62);
+  ctx.restore();
+}
+// ================= АППАРАТЫ =================
+function drawTurbineCapsule(L,sd,zi,s,col){
+  var q1=L(sd*1.15,0.5,zi+0.6), q2=L(sd*1.15,0.5,zi-0.6);
+  if(!q1||!q2) return;
+  ctx.strokeStyle='rgba(10,20,38,0.95)';
+  ctx.lineWidth=Math.max(3,s*0.30);
+  ctx.beginPath(); ctx.moveTo(q1.x,q1.y); ctx.lineTo(q2.x,q2.y); ctx.stroke();
+  ctx.strokeStyle=col+'0.35)';
+  ctx.lineWidth=Math.max(4,s*0.5); ctx.stroke();
+  ctx.strokeStyle=col+'0.95)';
+  ctx.lineWidth=Math.max(1.5,s*0.11); ctx.stroke();
+  var mx=(q1.x+q2.x)/2, my=(q1.y+q2.y)/2;
+  var tg2=ctx.createRadialGradient(mx,my,1,mx,my,s*0.9);
+  tg2.addColorStop(0,col+'0.5)'); tg2.addColorStop(1,col+'0)');
+  ctx.fillStyle=tg2; ctx.beginPath(); ctx.arc(mx,my,s*0.9,0,TAU); ctx.fill();
+  for(var e2=0;e2<2;e2++){
+    var pt=e2?q2:q1, rr=s*0.24;
+    ctx.fillStyle='rgba(8,14,26,0.95)';
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,rr,0,TAU); ctx.fill();
+    ctx.strokeStyle=col+'0.95)'; ctx.lineWidth=Math.max(1,s*0.07);
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,rr,0,TAU); ctx.stroke();
+    ctx.fillStyle=col+'0.9)';
+    ctx.beginPath(); ctx.arc(pt.x,pt.y,rr*0.4*(0.8+0.2*Math.sin(tG*10+sd+zi)),0,TAU); ctx.fill();
+  }
+}
+function drawBikes(){
+  for(var k=0;k<bikes.length;k++){
+    var b=bikes[k];
+    if(!b.alive||b.done) continue;
+    var p=proj(b.x,0.8,b.z);
+    if(!p||p.d>700) continue;
+    var s=focal/p.d;
+    var col='rgba('+b.col+',';
+    var fx=Math.sin(b.ang), fz=Math.cos(b.ang);
+    var rx=Math.cos(b.ang), rz=-Math.sin(b.ang);
+    var L=function(lx,ly,lz){ return proj(b.x+fx*lz+rx*lx, ly, b.z+fz*lz+rz*lx); };
+    var nK=(b.parts&&b.parts.neon)?NEON_K:1;
+    var ug=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,s*3.2);
+    ug.addColorStop(0,col+'0.28)'); ug.addColorStop(1,col+'0)');
+    ctx.fillStyle=ug; ctx.beginPath(); ctx.arc(p.x,p.y,s*3.2,0,TAU); ctx.fill();
+    var wf=L(0,0.3,1.55), wr2=L(0,0.38,-1.85);
+    if(wf&&wr2){
+      var rw=s*0.5;
+      ctx.fillStyle='rgba(8,14,26,0.95)';
+      ctx.beginPath(); ctx.arc(wf.x,wf.y,rw,0,TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(wr2.x,wr2.y,rw*1.1,0,TAU); ctx.fill();
+      ctx.strokeStyle=col+'0.8)'; ctx.lineWidth=Math.max(1,s*0.07);
+      ctx.beginPath(); ctx.arc(wf.x,wf.y,rw,0,TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(wr2.x,wr2.y,rw*1.1,0,TAU); ctx.stroke();
+      ctx.fillStyle=col+'0.9)';
+      ctx.beginPath(); ctx.arc(wf.x,wf.y,rw*0.3,0,TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(wr2.x,wr2.y,rw*0.32,0,TAU); ctx.fill();
+    }
+    // турбины: купленные боковые капсулы или родные гондолы аппарата
+    if(b.parts&&b.parts.side){
+      var tpz=[0.5,-0.35,-1.4];
+      for(var ti=0;ti<tpz.length;ti++) for(var tsd=-1;tsd<=1;tsd+=2) drawTurbineCapsule(L,tsd,tpz[ti],s,col);
+    } else if(b.sty.pods){
+      var ppz=[0.3,-1.2];
+      for(var pj=0;pj<ppz.length;pj++) for(var psd=-1;psd<=1;psd+=2) drawTurbineCapsule(L,psd*0.85,ppz[pj],s*0.8,col);
+    }
+    var prof=b.sty.prof, hull=[], ok=true;
+    for(var h2=0;h2<prof.length;h2++){
+      var qh=L(prof[h2][0],0.72,prof[h2][1]);
+      if(!qh) ok=false;
+      hull.push(qh);
+    }
+    for(var h3=prof.length-2;h3>0;h3--){
+      var qh2=L(-prof[h3][0],0.72,prof[h3][1]);
+      if(!qh2) ok=false;
+      hull.push(qh2);
+    }
+    if(!ok||hull.length<3) continue;
+    ctx.beginPath();
+    ctx.moveTo(hull[0].x,hull[0].y);
+    for(var h4=1;h4<hull.length;h4++) ctx.lineTo(hull[h4].x,hull[h4].y);
+    ctx.closePath();
+    var hg=ctx.createLinearGradient(hull[0].x,hull[0].y,hull[prof.length].x,hull[prof.length].y);
+    hg.addColorStop(0,'#0d1b30'); hg.addColorStop(1,'#050a16');
+    ctx.fillStyle=hg; ctx.fill();
+    ctx.strokeStyle=col+'0.22)'; ctx.lineWidth=Math.max(2,s*0.2*nK); ctx.stroke();
+    ctx.strokeStyle=col+'0.95)'; ctx.lineWidth=Math.max(1,s*0.09*nK); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=Math.max(0.8,s*0.03); ctx.stroke();
+    var pn=L(0,0.9,3.0), pt4=L(0,0.7,-2.6);
+    if(pn&&pt4){
+      ctx.strokeStyle=col+'0.5)'; ctx.lineWidth=Math.max(1,s*0.06);
+      ctx.beginPath(); ctx.moveTo(pn.x,pn.y); ctx.lineTo(pt4.x,pt4.y); ctx.stroke();
+    }
+    var cf=L(0,1.1,1.2), cb=L(0,1.15,-0.6);
+    if(cf&&cb){
+      var cx2=(cf.x+cb.x)/2, cy2=(cf.y+cb.y)/2;
+      var rot=Math.atan2(cb.y-cf.y,cb.x-cf.x);
+      var rl=Math.sqrt(Math.pow(cf.x-cb.x,2)+Math.pow(cf.y-cb.y,2))/2;
+      ctx.save(); ctx.translate(cx2,cy2); ctx.rotate(rot);
+      if(b.sty.can==='bubble'){
+        ctx.beginPath(); ctx.ellipse(0,0,rl,rl*0.45,0,0,TAU);
+        ctx.fillStyle='rgba(120,220,255,0.28)'; ctx.fill();
+        ctx.strokeStyle=col+'0.9)'; ctx.lineWidth=Math.max(1,s*0.06); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(-rl*0.25,-rl*0.1,rl*0.3,rl*0.12,0.4,0,TAU);
+        ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fill();
+      } else if(b.sty.can==='slit'){
+        ctx.strokeStyle=col+'0.95)'; ctx.lineWidth=Math.max(1.5,s*0.09);
+        ctx.beginPath(); ctx.moveTo(-rl,0); ctx.lineTo(rl,0); ctx.stroke();
+        ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=Math.max(0.8,s*0.03);
+        ctx.beginPath(); ctx.moveTo(-rl*0.5,-rl*0.12); ctx.lineTo(rl*0.5,-rl*0.12); ctx.stroke();
+      } else {
+        for(var tw=-1;tw<=1;tw+=2){
+          ctx.beginPath(); ctx.ellipse(tw*rl*0.45,0,rl*0.35,rl*0.4,0,0,TAU);
+          ctx.fillStyle='rgba(120,220,255,0.28)'; ctx.fill();
+          ctx.strokeStyle=col+'0.9)'; ctx.lineWidth=Math.max(1,s*0.06); ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+    if(b.sty.fin){
+      var f1=L(0,0.7,-1.6), f2=L(0,1.7,-2.5), f3=L(0,0.7,-2.4);
+      if(f1&&f2&&f3){
+        ctx.beginPath(); ctx.moveTo(f1.x,f1.y); ctx.lineTo(f2.x,f2.y); ctx.lineTo(f3.x,f3.y); ctx.closePath();
+        ctx.fillStyle='rgba(10,20,38,0.92)'; ctx.fill();
+        ctx.strokeStyle=col+'0.85)'; ctx.lineWidth=Math.max(1,s*0.06); ctx.stroke();
+      }
+    }
+    if(b.sty.wings){
+      var w1=L(-1.1,0.5,1.7), w2=L(-0.3,0.5,2.0), w3=L(0.3,0.5,2.0), w4=L(1.1,0.5,1.7);
+      if(w1&&w2&&w3&&w4){
+        ctx.beginPath(); ctx.moveTo(w1.x,w1.y); ctx.lineTo(w2.x,w2.y); ctx.lineTo(w3.x,w3.y); ctx.lineTo(w4.x,w4.y); ctx.closePath();
+        ctx.fillStyle='rgba(10,20,38,0.9)'; ctx.fill();
+        ctx.strokeStyle=col+'0.8)'; ctx.lineWidth=Math.max(1,s*0.05); ctx.stroke();
+      }
+    }
+    if(b.parts&&b.parts.spoiler){
+      var s1=L(-1.2,0.9,-2.5), s2=L(-1.2,1.35,-2.15), s3=L(1.2,1.35,-2.15), s4=L(1.2,0.9,-2.5);
+      if(s1&&s2&&s3&&s4){
+        ctx.beginPath(); ctx.moveTo(s1.x,s1.y); ctx.lineTo(s2.x,s2.y); ctx.lineTo(s3.x,s3.y); ctx.lineTo(s4.x,s4.y); ctx.closePath();
+        ctx.fillStyle='rgba(14,26,46,0.95)'; ctx.fill();
+        ctx.strokeStyle=col+'0.9)'; ctx.lineWidth=Math.max(1,s*0.07); ctx.stroke();
+      }
+    }
+    if(b.parts&&b.parts.front){
+      var t1=L(-0.75,0.55,2.35), t2=L(-0.75,0.8,2.05), t3=L(0.75,0.8,2.05), t4=L(0.75,0.55,2.35);
+      if(t1&&t2&&t3&&t4){
+        ctx.beginPath(); ctx.moveTo(t1.x,t1.y); ctx.lineTo(t2.x,t2.y); ctx.lineTo(t3.x,t3.y); ctx.lineTo(t4.x,t4.y); ctx.closePath();
+        ctx.fillStyle='rgba(14,26,46,0.95)'; ctx.fill();
+        ctx.strokeStyle=col+'0.9)'; ctx.lineWidth=Math.max(1,s*0.07); ctx.stroke();
+      }
+    }
+    if(s>7){
+      for(var rr2=0;rr2<3;rr2++){
+        var rz3=0.7-rr2*0.85;
+        var a2=L(1.0,0.62,rz3), c2=L(-1.0,0.62,rz3);
+        if(a2&&c2){
+          ctx.strokeStyle=col+'0.35)'; ctx.lineWidth=Math.max(1,s*0.05);
+          ctx.beginPath(); ctx.moveTo(a2.x,a2.y); ctx.lineTo(c2.x,c2.y); ctx.stroke();
+        }
+      }
+    }
+    var en2=L(0,0.8,-2.45);
+    if(en2){
+      var pulse=0.8+0.2*Math.sin(tG*12);
+      var eg=ctx.createRadialGradient(en2.x,en2.y,1,en2.x,en2.y,s*0.9*pulse);
+      eg.addColorStop(0,'rgba(255,255,255,0.95)');
+      eg.addColorStop(0.4,col+'0.8)');
+      eg.addColorStop(1,col+'0)');
+      ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(en2.x,en2.y,s*0.9*pulse,0,TAU); ctx.fill();
+    }
+    if(b.boost||b.freeT>0){
+      var j1=L(0,0.8,-2.9), j2=L(0,0.8,-5.5-Math.random()*1.5);
+      if(j1&&j2){
+        ctx.strokeStyle=col+'0.75)'; ctx.lineWidth=Math.max(2,s*0.5);
+        ctx.beginPath(); ctx.moveTo(j1.x,j1.y); ctx.lineTo(j2.x,j2.y); ctx.stroke();
+        ctx.strokeStyle='rgba(255,255,255,0.8)'; ctx.lineWidth=Math.max(1,s*0.18);
+        ctx.beginPath(); ctx.moveTo(j1.x,j1.y); ctx.lineTo(j2.x,j2.y); ctx.stroke();
+      }
+    }
+    if(s>5){
+      var hl=L(0,0.95,3.0);
+      if(hl){
+        ctx.fillStyle='rgba(255,255,255,0.9)';
+        ctx.beginPath(); ctx.arc(hl.x,hl.y,Math.max(1,s*0.1),0,TAU); ctx.fill();
+      }
+    }
+    if(b.slowT>0){
+      ctx.strokeStyle='rgba(255,80,80,0.9)'; ctx.lineWidth=Math.max(1,s*0.12);
+      ctx.beginPath(); ctx.arc(p.x,p.y,s*1.6,0,TAU); ctx.stroke();
+    }
+  }
+}
+// ================= СБОРКА КАДРА =================
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='#02040d'; ctx.fillRect(0,0,W,H);
+  if(shake>0) ctx.setTransform(1,0,0,1,(Math.random()*2-1)*shake*14*DPR,(Math.random()*2-1)*shake*14*DPR);
+  ctx.globalCompositeOperation='lighter';
+  drawWorld(); drawFinish(); drawCrystals(); drawTrails(); drawBikes(); drawParticles();
+  ctx.globalCompositeOperation='source-over';
+  drawCountdown();
+  drawMsg();
+  drawSpectMsg();
+  updHUD();
+}
+function updHUD(){
+  hCry.textContent=crysN;
+  hBank.textContent=SV.bank;
+  hBest.textContent=Math.round(best);
+  if(!P.alive) hPlace.textContent='—';
+  else{
+    var place=1;
+    if(P.done) place=P.place;
+    else { for(var i=0;i<bikes.length;i++){ var b=bikes[i]; if(b!==P&&(b.done||b.z>P.z)) place++; } }
+    hPlace.textContent=place;
+  }
+  hDist.textContent=Math.max(0,Math.round(TRACK_LEN-P.z))+' м';
+  hKills.textContent=kills;
+  hResc.textContent=P.rescues;
+  hE.textContent=Math.round(energy)+'/'+Math.round(TANK_CAP);
+  energyEl.style.width=clamp(energy/TANK_CAP*100,0,100)+'%';
+  bfill.style.height=clamp(energy/TANK_CAP*100,0,100)+'%';
+  bb.style.boxShadow=energy>=TANK_CAP-1?'0 0 28px rgba(53,240,255,.9)':'0 0 18px rgba(53,240,255,.45)';
+}
+// ================= ИКОНКИ АППАРАТОВ =================
+function iconTurbine(g,sd,zi,sc,colStr){
+  var y1=-zi*sc-sc*0.6, y2=-zi*sc+sc*0.6, x=sd*1.15*sc;
+  g.strokeStyle='rgba(10,20,38,0.95)'; g.lineWidth=sc*0.34;
+  g.beginPath(); g.moveTo(x,y1); g.lineTo(x,y2); g.stroke();
+  g.strokeStyle='rgba('+colStr+',0.35)'; g.lineWidth=sc*0.56; g.stroke();
+  g.strokeStyle='rgba('+colStr+',0.95)'; g.lineWidth=sc*0.12; g.stroke();
+  for(var e2=0;e2<2;e2++){
+    var py=e2?y2:y1, rr=sc*0.22;
+    g.fillStyle='rgba(8,14,26,0.95)';
+    g.beginPath(); g.arc(x,py,rr,0,TAU); g.fill();
+    g.strokeStyle='rgba('+colStr+',0.95)'; g.lineWidth=sc*0.08;
+    g.beginPath(); g.arc(x,py,rr,0,TAU); g.stroke();
+    g.fillStyle='rgba('+colStr+',0.9)';
+    g.beginPath(); g.arc(x,py,rr*0.4,0,TAU); g.fill();
+  }
+}
+function bikeIcon(canvas, styId, colStr, parts){
+  var st=STYLES[styId];
+  var g=canvas.getContext('2d');
+  var cw=canvas.width, ch=canvas.height;
+  g.clearRect(0,0,cw,ch);
+  g.save();
+  g.translate(cw/2, ch/2);
+  var sc=Math.min(cw/10, ch/8.5);
+  var rg=g.createRadialGradient(0,0,2,0,0,sc*4.4);
+  rg.addColorStop(0,'rgba('+colStr+',0.35)'); rg.addColorStop(1,'rgba('+colStr+',0)');
+  g.fillStyle=rg; g.beginPath(); g.arc(0,0,sc*4.4,0,TAU); g.fill();
+  if(parts&&parts.side){ iconTurbine(g,-1,0.5,sc,colStr); iconTurbine(g,1,0.5,sc,colStr); iconTurbine(g,-1,-1.4,sc,colStr); iconTurbine(g,1,-1.4,sc,colStr); }
+  else if(st.pods){ iconTurbine(g,-0.85,0.3,sc*0.8,colStr); iconTurbine(g,0.85,0.3,sc*0.8,colStr); iconTurbine(g,-0.85,-1.2,sc*0.8,colStr); iconTurbine(g,0.85,-1.2,sc*0.8,colStr); }
+  var prof=st.prof;
+  g.beginPath();
+  g.moveTo(0,-prof[0][1]*sc);
+  for(var i=1;i<prof.length;i++) g.lineTo(prof[i][0]*sc,-prof[i][1]*sc);
+  for(var j=prof.length-2;j>=0;j--) g.lineTo(-prof[j][0]*sc,-prof[j][1]*sc);
+  g.closePath();
+  var hg=g.createLinearGradient(0,-3*sc,0,3*sc);
+  hg.addColorStop(0,'#12233d'); hg.addColorStop(1,'#050a16');
+  g.fillStyle=hg; g.fill();
+  var nK=(parts&&parts.neon)?NEON_K:1;
+  g.strokeStyle='rgba('+colStr+',0.25)'; g.lineWidth=sc*0.5*nK; g.stroke();
+  g.strokeStyle='rgba('+colStr+',0.95)'; g.lineWidth=sc*0.16*nK; g.stroke();
+  var cs=sc;
+  if(st.can==='bubble'){
+    g.beginPath(); g.ellipse(0,-0.35*sc,cs*0.42,cs*0.7,0,0,TAU);
+    g.fillStyle='rgba(120,220,255,0.35)'; g.fill();
+    g.strokeStyle='rgba('+colStr+',0.9)'; g.lineWidth=sc*0.1; g.stroke();
+    g.beginPath(); g.ellipse(-cs*0.12,-cs*0.55,cs*0.16,cs*0.26,0,0,TAU);
+    g.fillStyle='rgba(255,255,255,0.4)'; g.fill();
+  } else if(st.can==='slit'){
+    g.strokeStyle='rgba('+colStr+',0.95)'; g.lineWidth=sc*0.16;
+    g.beginPath(); g.moveTo(-cs*0.3,-cs*0.85); g.lineTo(cs*0.3,-cs*0.85); g.stroke();
+  } else {
+    for(var tw=-1;tw<=1;tw+=2){
+      g.beginPath(); g.ellipse(tw*cs*0.32,-cs*0.5,cs*0.24,cs*0.38,0,0,TAU);
+      g.fillStyle='rgba(120,220,255,0.35)'; g.fill();
+      g.strokeStyle='rgba('+colStr+',0.9)'; g.lineWidth=sc*0.1; g.stroke();
+    }
+  }
+  if(st.fin){
+    g.strokeStyle='rgba('+colStr+',0.85)'; g.lineWidth=sc*0.22;
+    g.beginPath(); g.moveTo(0,-1.6*sc); g.lineTo(0,-2.5*sc); g.stroke();
+  }
+  if(st.wings||(parts&&parts.front)){
+    g.beginPath();
+    g.moveTo(-1.1*sc,-1.7*sc); g.lineTo(-0.3*sc,-2.0*sc);
+    g.lineTo(0.3*sc,-2.0*sc); g.lineTo(1.1*sc,-1.7*sc);
+    g.closePath();
+    g.fillStyle='rgba(14,26,46,0.9)'; g.fill();
+    g.strokeStyle='rgba('+colStr+',0.8)'; g.lineWidth=sc*0.12; g.stroke();
+  }
+  if(parts&&parts.spoiler){
+    g.beginPath();
+    g.moveTo(-1.2*sc,-2.5*sc); g.lineTo(-1.2*sc,-2.15*sc);
+    g.lineTo(1.2*sc,-2.15*sc); g.lineTo(1.2*sc,-2.5*sc);
+    g.closePath();
+    g.fillStyle='rgba(14,26,46,0.95)'; g.fill();
+    g.strokeStyle='rgba('+colStr+',0.9)'; g.lineWidth=sc*0.14; g.stroke();
+  }
+  g.fillStyle='rgba(8,14,26,0.95)';
+  g.beginPath(); g.arc(0,-1.55*sc,sc*0.42,0,TAU); g.fill();
+  g.beginPath(); g.arc(0,1.85*sc,sc*0.5,0,TAU); g.fill();
+  g.strokeStyle='rgba('+colStr+',0.8)'; g.lineWidth=sc*0.1;
+  g.beginPath(); g.arc(0,-1.55*sc,sc*0.42,0,TAU); g.stroke();
+  g.beginPath(); g.arc(0,1.85*sc,sc*0.5,0,TAU); g.stroke();
+  g.restore();
+}
+// ================= ЭКРАНЫ ИТОГОВ И ЭКОНОМИКА =================
+function showPanel(html){ panel.innerHTML=html; overlay.style.display='flex'; }
+function startGame(){ reset(); state='count'; countT=3.3; countPrev=-99; initAudio(); overlay.style.display='none'; }
+function saveBest(){ if(score>best){ best=Math.round(score); SV.best=best; } saveGame(); }
+// Соперники копят кристаллы в междуконьковое хранилище и покупают апгрейды
+function rivalsEconomy(){
+  var changed=false;
+  for(var i=0;i<enemies.length;i++){
+    var e=enemies[i], rn=e.rider?e.rider.n:null;
+    if(!rn) continue;
+    var rv=SV.rivals[rn]; if(!rv) continue;
+    rv.cr+=e.crystals+120; changed=true;
+    if(Math.random()<0.85){
+      var opts=[];
+      var keys=['spd','tank','boost'];
+      for(var k2=0;k2<keys.length;k2++){
+        var kk=keys[k2], lv=(rv[kk]||0)+1;
+        if(lv<RIV_PR[kk].length) opts.push({k:kk,lv:lv,pr:RIV_PR[kk][lv]});
+      }
+      if(opts.length){
+        var pick=opts[(Math.random()*opts.length)|0];
+        if(rv.cr>=pick.pr){ rv.cr-=pick.pr; rv[pick.k]=pick.lv; }
+      }
+    }
+  }
+  if(changed) saveGame();
+}
+// Победа открывает аппарат соперника, который дальше всех проехал к финишу
+function unlockSilver(){
+  var bestE=null, bz=-1e9;
+  for(var i=0;i<enemies.length;i++){
+    var e=enemies[i];
+    if(!e.rider||SV.unlocked.indexOf(e.rider.n)>=0) continue;
+    if(e.z>bz){ bz=e.z; bestE=e.rider; }
+  }
+  if(bestE){ SV.unlocked.push(bestE.n); newUnlock=bestE; saveGame(); }
+}
+function awardPrizes(place){
+  SV.bank+=crysN+(place===1?800:0);
+  saveGame();
+}
+function standingsHtml(){
+  var s='';
+  for(var i=0;i<finishOrder.length;i++){
+    var b=finishOrder[i];
+    s+='<p style="margin:4px 0;font-size:14px">'+(i+1)+'. <b style="color:rgb('+b.col+')">'+b.rname+'</b> — кристаллов: '+b.crystals+'</p>';
+  }
+  return s;
+}
+function winGame(){
+  state='over'; saveBest();
+  rivalsEconomy();
+  if(P.place===1) unlockSilver();
+  awardPrizes(P.place);
+  var pl=P.place;
+  var tt=pl===1?'ПОБЕДА!':(pl===2?'СЕРЕБРО!':(pl===3?'БРОНЗА!':'ЗАЕЗД ЗАВЕРШЁН'));
+  var html='<h1>ФИНИШ!</h1><p class="go">'+pl+' МЕСТО — '+tt+'</p>'+standingsHtml();
+  if(newUnlock){
+    html+='<p class="go">ОТКРЫТ К ПОКУПКЕ: '+newUnlock.n+'!</p>';
+    html+='<p style="font-size:12px">Ждёт в разделе «МОТОЦИКЛЫ» за '+newUnlock.price+' ◈</p>';
+    newUnlock=null;
+  }
+  html+='<p>В банк: <b style="color:#c89cff">'+crysN+'</b> ◈ · Очки: <b style="color:#35f0ff">'+Math.round(score)+'</b></p><div class="btnrow"><button id="goBtn">ЕЩЁ РАЗ</button><button class="alt" id="menuBtn">В ГЛАВНОЕ МЕНЮ</button></div>';
+  showPanel(html);
+  document.getElementById('goBtn').onclick=startGame;
+  document.getElementById('menuBtn').onclick=mainMenu;
+}
+function gameOver(){
+  state='over'; saveBest(); rivalsEconomy(); awardPrizes(0);
+  showPanel('<h1>ВЫБЫЛ ИЗ ГОНКИ</h1>'+standingsHtml()+'<p>В банк: <b style="color:#c89cff">'+crysN+'</b> ◈ · Очки: '+Math.round(score)+'</p><div class="btnrow"><button id="goBtn">ЕЩЁ РАЗ</button><button class="alt" id="menuBtn">В ГЛАВНОЕ МЕНЮ</button></div>');
+  document.getElementById('goBtn').onclick=startGame;
+  document.getElementById('menuBtn').onclick=mainMenu;
+}
+function finishSpectate(){
+  if(state!=='play') return;
+  state='over'; saveBest(); rivalsEconomy(); awardPrizes(0);
+  var html;
+  if(finishOrder.length>0){
+    html='<h1>ИТОГИ ГОНКИ</h1><p class="go">ПОБЕДИЛ '+finishOrder[0].rname+'</p>'+standingsHtml()+
+      '<p style="font-size:13px">Ты сошёл на '+Math.round(P.z)+' м из '+TRACK_LEN+'. В банк: '+crysN+' ◈</p>';
+  } else {
+    html='<h1>ИТОГИ ГОНКИ</h1><p>До финиша не доехал никто — все сгорели в свете.</p>';
+  }
+  html+='<div class="btnrow"><button id="goBtn">ЕЩЁ РАЗ</button><button class="alt" id="menuBtn">В ГЛАВНОЕ МЕНЮ</button></div>';
+  showPanel(html);
+  document.getElementById('goBtn').onclick=startGame;
+  document.getElementById('menuBtn').onclick=mainMenu;
+}
+// ================= МЕНЮ =================
+function menuParts(){
+  var u=curTune();
+  return {spoiler:u.spd>0,front:u.steer>0,side:u.boost>0,neon:u.neon>0};
+}
+function mainMenu(){
+  state='menu';
+  var hasB=SV.unlocked.length>0;
+  var selName=SV.sel==='you'?'АВАНГАРД (сток)':SV.sel;
+  showPanel('<h1>LIGHT <span>RACE</span></h1>'+
+    '<p>Банк: <b style="color:#c89cff">'+SV.bank+'</b> ◈ · Рекорд: '+Math.round(best)+'</p>'+
+    '<p>Твой аппарат: <b style="color:#7dffc0">'+selName+'</b></p>'+
+    '<div class="btnrow"><button id="stBtn">СТАРТ</button>'+
+    (hasB?'<button class="alt" id="bkBtn">МОТОЦИКЛЫ</button>':'')+
+    '<button class="alt" id="grBtn">ГАРАЖ</button></div>'+
+    '<p style="font-size:12px">Приди первым — аппарат серебряного призёра откроется к покупке. Соперники тоже копят кристаллы и прокачивают свои байки — не зевай.</p>');
+  document.getElementById('stBtn').onclick=startGame;
+  document.getElementById('grBtn').onclick=garagePanel;
+  if(hasB) document.getElementById('bkBtn').onclick=bikesPanel;
+}
+function statLine(st){
+  return 'Скор '+st.s.toFixed(1)+' · Бак '+st.tk+' · Тяга ×'+st.bm.toFixed(2)+' · Руль '+st.tr.toFixed(1);
+}
+function cardHtml(r){
+  var isSel=SV.sel===r.n;
+  var unlocked=(r.n==='you')||SV.unlocked.indexOf(r.n)>=0;
+  var owned=SV.owned.indexOf(r.n)>=0;
+  var st;
+  if(r.n==='you') st=playerStats();
+  else st=rivalStats(r);
+  var fst=STYLES[(r.n==='you')?'you':r.sty];
+  var btn;
+  if(isSel) btn='<p style="color:#7dffc0;font-weight:800">ВЫБРАН</p>';
+  else if(r.n==='you') btn='<button data-sel="you">ВЫБРАТЬ</button>';
+  else if(owned) btn='<button data-sel="'+r.n+'">ВЫБРАТЬ</button>';
+  else if(unlocked) btn='<button class="buy" data-buy="'+r.n+'"'+(SV.bank<r.price?' disabled':'')+'>КУПИТЬ '+r.price+' ◈</button>';
+  else btn='<button disabled>ЗАКРЫТО</button>';
+  return '<div class="card'+(isSel?' sel':'')+(unlocked?'':' lock')+'">'+
+    '<canvas data-bike="'+r.n+'" width="280" height="200"></canvas>'+
+    '<h3>'+r.n+'</h3><p>'+r.d+'</p>'+
+    '<div class="st">'+statLine(st)+'</div>'+
+    '<p style="color:#7dffc0;font-size:10px">Фишка: '+fst.fl+'</p>'+
+    '<p style="font-size:10px">Веток прокачки: '+fst.uk.length+'</p>'+btn+'</div>';
+}
+function paintCards(){
+  var cs=panel.querySelectorAll('canvas[data-bike]');
+  for(var i=0;i<cs.length;i++){
+    var n=cs[i].getAttribute('data-bike');
+    if(n==='you'){ bikeIcon(cs[i],'you','53,240,255',menuParts()); }
+    else{
+      var r=getRider(n);
+      if(r) bikeIcon(cs[i],r.sty,r.col,riderParts(n));
+    }
+  }
+}
+function bikesPanel(){
+  var html='<h1>МОТОЦИКЛЫ</h1><p>Победи в гонке — аппарат серебряного призёра откроется к покупке за кристаллы. Сток следующего чуть слабее прокачанного текущего, но в максимальной прокачке он сильнее. Прокачка у каждого своя — возвращайся к любому.</p><div id="cards">';
+  html+=cardHtml({n:'you',d:'АВАНГАРД — твой сток, растёт от тюнинга',sty:'you',col:'53,240,255'});
+  for(var i=0;i<RIDERS.length;i++) html+=cardHtml(RIDERS[i]);
+  html+='</div><div class="btnrow"><button class="dim" id="bkBack">НАЗАД</button></div>';
+  showPanel(html);
+  paintCards();
+  var bs=panel.querySelectorAll('button[data-sel]');
+  for(var q=0;q<bs.length;q++){
+    bs[q].onclick=function(){ SV.sel=this.getAttribute('data-sel'); saveGame(); bikesPanel(); };
+  }
+  var bb2=panel.querySelectorAll('button[data-buy]');
+  for(var w2=0;w2<bb2.length;w2++){
+    bb2[w2].onclick=function(){
+      var nm=this.getAttribute('data-buy'), r=getRider(nm);
+      if(r&&SV.bank>=r.price&&SV.owned.indexOf(nm)<0){
+        SV.bank-=r.price;
+        SV.owned.push(nm);
+        SV.sel=nm;
+        saveGame();
+        bikesPanel();
+      }
+    };
+  }
+  document.getElementById('bkBack').onclick=mainMenu;
+}
+function garagePanel(){
+  var selName=SV.sel==='you'?'АВАНГАРД':SV.sel;
+  var html='<h1>ГАРАЖ</h1><p>Банк: <b style="color:#c89cff">'+SV.bank+'</b> ◈ · Тюнинг: <b style="color:#7dffc0">'+selName+'</b></p>'+
+    '<p style="font-size:11px">Уровни у каждого аппарата свои — покупай байк и качай его отдельно. Следующий стоковый чуть слабее полностью прокачанного текущего.</p>';
+  html+='<div class="btnrow"><button class="'+(garTab==='up'?'':'dim')+'" id="tU">УЛУЧШЕНИЯ</button>'+
+    '<button class="'+(garTab==='r'?'':'dim')+'" id="tR">СТАН СОПЕРНИКОВ</button></div>';
+  if(garTab==='up'){
+    var u=curTune();
+    var mySty=STYLES[(SV.sel!=='you')?getRider(SV.sel).sty:'you'];
+    var list=mySty.uk;
+    for(var i=0;i<list.length;i++){
+      var up=null;
+      for(var q3=0;q3<UPGRADES.length;q3++) if(UPGRADES[q3].k===list[i]){ up=UPGRADES[q3]; break; }
+      if(!up) continue;
+      var lv=u[up.k]||0;
+      var maxL=up.pr.length-1;
+      if(lv<maxL){
+        var price=up.pr[lv+1];
+        html+='<div class="grow"><div class="t"><b>'+up.nm+' ('+lv+') → ('+(lv+1)+')</b><br><span>'+up.d+': '+up.fx[lv+1]+'</span></div>'+
+          '<button data-upg="'+up.k+'"'+(SV.bank<price?' disabled':'')+'>'+price+' ◈</button></div>';
+      } else {
+        html+='<div class="grow"><div class="t"><b>✔ '+up.nm+' — максимум</b><br><span>'+up.fx[lv]+'</span></div><button disabled>ЕСТЬ</button></div>';
+      }
+    }
+    html+='<p style="font-size:11px">У этого аппарата '+list.length+' веток прокачки. Вернуться к другому — выбери его в мотосалоне, прогресс каждого сохраняется отдельно.</p>';
+  } else {
+    for(var q2=0;q2<RIDERS.length;q2++){
+      var r3=RIDERS[q2], rv2=SV.rivals[r3.n]||{cr:0,spd:0,tank:0,boost:0};
+      html+='<div class="grow"><div class="t"><b style="color:rgb('+r3.col+')">'+r3.n+'</b><br><span>Кошелёк: '+rv2.cr+' ◈ · Скор ур.'+(rv2.spd||0)+'/3 · Бак ур.'+(rv2.tank||0)+'/3 · Тяга ур.'+(rv2.boost||0)+'/3</span></div></div>';
+    }
+    html+='<p style="font-size:11px">Они стартуют на уровне стока твоего аппарата и растут от заезда к заезду. Догоняй — или они догонят.</p>';
+  }
+  html+='<div class="btnrow"><button class="dim" id="grBack">НАЗАД</button></div>';
+  showPanel(html);
+  document.getElementById('tU').onclick=function(){ garTab='up'; garagePanel(); };
+  document.getElementById('tR').onclick=function(){ garTab='r'; garagePanel(); };
+  document.getElementById('grBack').onclick=mainMenu;
+  var us=panel.querySelectorAll('button[data-upg]');
+  for(var g2=0;g2<us.length;g2++){
+    us[g2].onclick=function(){
+      var k3=this.getAttribute('data-upg');
+      for(var ui=0;ui<UPGRADES.length;ui++){
+        if(UPGRADES[ui].k===k3){
+          var ut=curTune();
+          var lv2=ut[k3]||0;
+          if(lv2<UPGRADES[ui].pr.length-1){
+            var price2=UPGRADES[ui].pr[lv2+1];
+            if(SV.bank>=price2){ SV.bank-=price2; ut[k3]=lv2+1; saveGame(); garagePanel(); }
+          }
+          break;
+        }
+      }
+    };
+  }
+}
+// ================= УПРАВЛЕНИЕ =================
+window.addEventListener('keydown',function(e){
+  if(e.code==='ArrowLeft'||e.code==='KeyA') steerKey=-1;
+  else if(e.code==='ArrowRight'||e.code==='KeyD') steerKey=1;
+  else if(e.code==='Space'){ boostKey=true; e.preventDefault(); }
+  else if(e.code==='Enter'&&state!=='play'&&state!=='count') startGame();
+});
+window.addEventListener('keyup',function(e){
+  if(e.code==='ArrowLeft'||e.code==='KeyA'||e.code==='ArrowRight'||e.code==='KeyD') steerKey=0;
+  else if(e.code==='Space') boostKey=false;
+});
+cv.addEventListener('touchstart',function(e){ touchOn=true; touchX0=e.touches[0].clientX; },{passive:true});
+cv.addEventListener('touchmove',function(e){ if(!touchOn) return; touchSteer=clamp((e.touches[0].clientX-touchX0)/(innerWidth*0.16),-1,1); },{passive:true});
+cv.addEventListener('touchend',function(){ touchOn=false; touchSteer=0; },{passive:true});
+bb.addEventListener('touchstart',function(e){ e.preventDefault(); boostBtnOn=true; },{passive:false});
+bb.addEventListener('touchend',function(){ boostBtnOn=false; },{passive:true});
+bb.addEventListener('mousedown',function(){ boostBtnOn=true; });
+bb.addEventListener('mouseup',function(){ boostBtnOn=false; });
+// ================= ЗАПУСК =================
+function setFocal(){ focal=Math.min(H*0.95,W*1.35); }
+setFocal();
+window.addEventListener('resize',setFocal);
+mainMenu();
+requestAnimationFrame(function loop(ts){
+  requestAnimationFrame(loop);
+  if(!ts) return;
+  if(!loop.last) loop.last=ts;
+  var dt=Math.min(0.05,(ts-loop.last)/1000); loop.last=ts;
+  tG+=dt;
+  if(state==='count'){
+    countT-=dt;
+    var n=countT>0?Math.ceil(countT):0;
+    if(n!==countPrev){
+      countPrev=n;
+      if(AC){ if(n>0) tone(392,AC.currentTime,0.15,'square',0.15); else tone(784,AC.currentTime,0.45,'square',0.2); }
+    }
+    if(countT<=-0.7){ state='play'; graceT=1.5; }
+  }
+  if(state==='play'||state==='over') update(dt);
+  updateCam(dt);
+  render();
+});
+})();
+</script>
+</body>
+</html>
